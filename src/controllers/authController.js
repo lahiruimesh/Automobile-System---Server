@@ -37,7 +37,7 @@ export const signup = async (req, res) => {
   }
 };
 
-// Login
+// Login (Customer / Employee / Admin)
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
