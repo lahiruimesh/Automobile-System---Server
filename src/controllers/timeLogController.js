@@ -496,8 +496,8 @@ export const updateServiceStatus = async (req, res) => {
 
     const result = await pool.query(
       `UPDATE services 
-       SET status = $1, 
-           completion_date = CASE WHEN $1 = 'completed' THEN CURRENT_TIMESTAMP ELSE completion_date END,
+       SET status = $1::text, 
+           completion_date = CASE WHEN $1::text = 'completed' THEN CURRENT_TIMESTAMP ELSE completion_date END,
            updated_at = CURRENT_TIMESTAMP
        WHERE id = $2
        RETURNING *`,
