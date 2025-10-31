@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+// Neon requires SSL with proper configuration
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
