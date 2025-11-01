@@ -12,11 +12,25 @@ const pool = new Pool({
   database: process.env.DB_NAME,
   ssl: {
     rejectUnauthorized: false,
-  }
+  },
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 10
 });
 
-pool.connect()
-  .then(() => console.log("Connected to PostgreSQL"))
-  .catch(err => console.error("DB connection error", err));
+// Test connection with retry logic
+const connectWithRetry = async () => {
+  try {
+    const client = await pool.connect();
+    console.log("✅ Connected to PostgreSQL");
+    client.release();
+  } catch (err) {
+    console.error("❌ DB connection error:", err.message);
+    console.log("🔄 Retrying connection in 5 seconds...");
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+connectWithRetry();
 
 export default pool;

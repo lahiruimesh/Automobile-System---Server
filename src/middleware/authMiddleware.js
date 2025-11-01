@@ -17,3 +17,10 @@ export const protect = (req, res, next) => {
     res.status(401).json({ message: "Invalid token" });
   }
 };
+
+export const adminOnly = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'employee') {
+    return res.status(403).json({ message: "Access denied. Admin/Employee only." });
+  }
+  next();
+};
