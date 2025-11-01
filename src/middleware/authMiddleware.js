@@ -1,36 +1,18 @@
 import jwt from "jsonwebtoken";
 
-export const protect = (req, res, next) => {
-  let token = req.headers["authorization"];
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
 
-  if (!token || !token.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
+  if (!token) {
+    return res.status(401).json({ message: "Access token required" });
   }
 
-  token = token.split(" ")[1];
-
-  try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    req.user = decoded; // add user payload to request
-    next();
-  } catch (err) {
-    res.status(401).json({ message: "Invalid token" });
-  }
-};
-
-// Role-based access control middleware
-export const roleCheck = (allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user || !req.user.role) {
-      return res.status(401).json({ message: "User not authenticated" });
+  jwt.verify(token, process.env.JWT_SECRET || "fallback_secret", (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
     }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: `Access denied. Required roles: ${allowedRoles.join(", ")}` 
-      });
-    }
-
+    req.user = user;
     next();
-  };
+  });
 };

@@ -13,7 +13,10 @@ const httpServer = createServer(app);
 // Initialize Socket.io with CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://localhost:3001"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   },
@@ -27,17 +30,17 @@ io.on("connection", (socket) => {
     console.log("❌ Client disconnected:", socket.id);
   });
 
-  // Handle custom events
+  // Custom events
   socket.on("joinAppointmentRoom", (appointmentId) => {
     socket.join(`appointment_${appointmentId}`);
-    console.log(`User joined appointment room: ${appointmentId}`);
+    console.log(`📍 User joined appointment room: ${appointmentId}`);
   });
 });
 
-// Make io available to routes via middleware
+// Make io accessible in routes
 app.use((req, res, next) => {
   req.io = io;
-  next();
+  return next();
 });
 
 // Start server
@@ -51,29 +54,28 @@ httpServer.listen(PORT, () => {
   console.log("  PUT  /api/auth/profile");
   console.log("  PUT  /api/auth/change-password");
   console.log("  GET  /api/customer/dashboard");
-  console.log("  GET  /api/health");
 });
 
 // Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('❌ Unhandled Promise Rejection:', err.message);
-  console.error('💡 Server will continue running...');
+process.on("unhandledRejection", (err) => {
+  console.error("❌ Unhandled Promise Rejection:", err.message);
+  console.error("💡 Server will continue running...");
 });
 
 // Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('❌ Uncaught Exception:', err.message);
-  console.error('💡 Attempting to gracefully shutdown...');
+process.on("uncaughtException", (err) => {
+  console.error("❌ Uncaught Exception:", err.message);
+  console.error("💡 Attempting graceful shutdown...");
   httpServer.close(() => {
     process.exit(1);
   });
 });
 
 // Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM signal received: closing HTTP server');
+process.on("SIGTERM", () => {
+  console.log("👋 SIGTERM received: closing HTTP server");
   httpServer.close(() => {
-    console.log('✅ HTTP server closed');
+    console.log("✅ HTTP server closed");
     process.exit(0);
   });
 });
