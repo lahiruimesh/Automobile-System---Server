@@ -4,10 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-<<<<<<< HEAD
 // Create a PostgreSQL connection pool (Neon-compatible)
-=======
->>>>>>> sachithB2
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
