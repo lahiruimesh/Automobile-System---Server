@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>WebSocket Test</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Service Request Status Updates</h1>
+    <div id="updates"></div>
+
+    <script>
+        const socket = io('http://localhost:5000');
+        
+        socket.on('connect', () => {
+            console.log('Connected to server');
+            document.getElementById('updates').innerHTML += '<p>✅ Connected to WebSocket</p>';
+        });
+        
+        socket.on('statusUpdate', (data) => {
+            console.log('Status update:', data);
+            document.getElementById('updates').innerHTML += 
+                `<p>🔄 Request ${data.requestId}: ${data.status} (${data.progress}%)</p>`;
+        });
+    </script>
+</body>
+</html>

@@ -18,6 +18,11 @@ export const protect = (req, res, next) => {
   }
 };
 
+export const adminOnly = (req, res, next) => {
+  if (req.user.role !== 'admin' && req.user.role !== 'employee') {
+    return res.status(403).json({ message: "Access denied. Admin/Employee only." });
+  }
+  next();
 // Role-based access control middleware
 export const roleCheck = (allowedRoles) => {
   return (req, res, next) => {

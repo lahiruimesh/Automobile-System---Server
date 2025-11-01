@@ -14,6 +14,25 @@ const pool = new Pool({
   ssl: {
     rejectUnauthorized: false,
   },
+  connectionTimeoutMillis: 10000,
+  idleTimeoutMillis: 30000,
+  max: 10
+});
+
+// Test connection with retry logic
+const connectWithRetry = async () => {
+  try {
+    const client = await pool.connect();
+    console.log("✅ Connected to PostgreSQL");
+    client.release();
+  } catch (err) {
+    console.error("❌ DB connection error:", err.message);
+    console.log("🔄 Retrying connection in 5 seconds...");
+    setTimeout(connectWithRetry, 5000);
+  }
+};
+
+connectWithRetry();
   // Connection pool settings for Neon
   max: 20, // Maximum number of clients in the pool
   idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
