@@ -23,6 +23,8 @@ export const adminOnly = (req, res, next) => {
     return res.status(403).json({ message: "Access denied. Admin/Employee only." });
   }
   next();
+};
+
 // Role-based access control middleware
 export const roleCheck = (allowedRoles) => {
   return (req, res, next) => {

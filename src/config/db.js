@@ -4,7 +4,7 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
-// Neon requires SSL with proper configuration
+// Create a PostgreSQL connection pool (Neon-compatible)
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -12,49 +12,41 @@ const pool = new Pool({
   port: process.env.DB_PORT,
   database: process.env.DB_NAME,
   ssl: {
-    rejectUnauthorized: false,
+    rejectUnauthorized: false, // Required for Neon
   },
-  connectionTimeoutMillis: 10000,
-  idleTimeoutMillis: 30000,
-  max: 10
+  max: 20, // Maximum number of clients in the pool
+  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
+  connectionTimeoutMillis: 10000, // Timeout if connection can't be established
+  allowExitOnIdle: false, // Keep pool alive
 });
 
 // Test connection with retry logic
-const connectWithRetry = async () => {
-  try {
-    const client = await pool.connect();
-    console.log("✅ Connected to PostgreSQL");
-    client.release();
-  } catch (err) {
-    console.error("❌ DB connection error:", err.message);
-    console.log("🔄 Retrying connection in 5 seconds...");
-    setTimeout(connectWithRetry, 5000);
+const connectWithRetry = async (retries = 5, delay = 5000) => {
+  while (retries > 0) {
+    try {
+      const client = await pool.connect();
+      console.log("✅ Connected to PostgreSQL (Neon)");
+      client.release();
+      return;
+    } catch (err) {
+      console.error("❌ DB connection error:", err.message);
+      retries--;
+      if (retries > 0) {
+        console.log(`🔄 Retrying connection in ${delay / 1000} seconds... (${retries} retries left)`);
+        await new Promise((res) => setTimeout(res, delay));
+      } else {
+        console.error("🚫 Failed to connect to PostgreSQL after multiple attempts.");
+      }
+    }
   }
 };
 
-connectWithRetry();
-  // Connection pool settings for Neon
-  max: 20, // Maximum number of clients in the pool
-  idleTimeoutMillis: 30000, // Close idle clients after 30 seconds
-  connectionTimeoutMillis: 10000, // Return an error after 10 seconds if connection cannot be established
-  allowExitOnIdle: false, // Keep the pool alive
-});
-
 // Handle pool errors
-pool.on('error', (err, client) => {
-  console.error('Unexpected error on idle client', err);
-  // Don't exit the process
+pool.on("error", (err) => {
+  console.error("⚠️ Unexpected error on idle PostgreSQL client:", err.message);
 });
 
-// Test connection on startup
-pool.connect()
-  .then(client => {
-    console.log("✅ Connected to PostgreSQL (Neon)");
-    client.release();
-  })
-  .catch(err => {
-    console.error("❌ DB connection error:", err.message);
-    console.error("💡 Check your .env file and ensure database is accessible");
-  });
+// Try initial connection
+connectWithRetry();
 
 export default pool;
