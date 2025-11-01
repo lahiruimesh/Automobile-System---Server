@@ -4,7 +4,10 @@ import dotenv from "dotenv";
 
 dotenv.config();
 
+<<<<<<< HEAD
 // Create a PostgreSQL connection pool (Neon-compatible)
+=======
+>>>>>>> sachithB2
 const pool = new Pool({
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
@@ -48,5 +51,22 @@ pool.on("error", (err) => {
 
 // Try initial connection
 connectWithRetry();
+pool.on('error', (err, client) => {
+  console.error('Unexpected error on idle client', err);
+});
+
+// Test connection on startup
+const testConnection = async () => {
+  try {
+    const client = await pool.connect();
+    console.log("✅ Connected to PostgreSQL (Neon)");
+    client.release();
+  } catch (err) {
+    console.error("❌ DB connection error:", err.message);
+    console.error("💡 Check your .env file and ensure database is accessible");
+  }
+};
+
+testConnection();
 
 export default pool;

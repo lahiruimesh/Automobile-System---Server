@@ -1,14 +1,26 @@
 import jwt from "jsonwebtoken";
 
-export const generateToken = (user) => {
-  return jwt.sign(
-    {
-      id: user.id,
-      email: user.email,
-      role: user.role,
-      is_active: user.is_active,
-    },
-    process.env.JWT_SECRET,
-    { expiresIn: "1h" }
-  );
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
+
+  if (!token) {
+    return res.status(401).json({ message: "Access token required" });
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || "fallback_secret", (err, user) => {
+    if (err) {
+      return res.status(403).json({ message: "Invalid or expired token" });
+    }
+    req.user = user;
+    next();
+  });
 };
+
+export function generateToken(payload) {
+  const secret = process.env.JWT_SECRET || "change_this_secret";
+  const expiresIn = process.env.JWT_EXPIRES_IN || "7d";
+  return jwt.sign(payload, secret, { expiresIn });
+}
+
+export default generateToken;

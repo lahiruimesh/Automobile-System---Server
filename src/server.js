@@ -1,7 +1,7 @@
-import dotenv from "dotenv";
 import { createServer } from "http";
 import { Server } from "socket.io";
 import app from "./app.js";
+import dotenv from "dotenv";
 
 dotenv.config();
 
@@ -13,31 +13,34 @@ const httpServer = createServer(app);
 // Initialize Socket.io with CORS
 const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: [
+      process.env.CLIENT_URL || "http://localhost:3000",
+      "http://localhost:3001"
+    ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true,
   },
-});
-
-// Make io available in routes
-app.use((req, res, next) => {
-  req.io = io;
-  next();
 });
 
 // Socket.io connection handling
 io.on("connection", (socket) => {
   console.log("✅ Client connected:", socket.id);
 
-  // Join appointment room example
-  socket.on("joinAppointmentRoom", (appointmentId) => {
-    socket.join(`appointment_${appointmentId}`);
-    console.log(`📡 User joined appointment room: ${appointmentId}`);
-  });
-
   socket.on("disconnect", () => {
     console.log("❌ Client disconnected:", socket.id);
   });
+
+  // Custom events
+  socket.on("joinAppointmentRoom", (appointmentId) => {
+    socket.join(`appointment_${appointmentId}`);
+    console.log(`📍 User joined appointment room: ${appointmentId}`);
+  });
+});
+
+// Make io accessible in routes
+app.use((req, res, next) => {
+  req.io = io;
+  return next();
 });
 
 // Start server
@@ -51,22 +54,26 @@ httpServer.listen(PORT, () => {
   console.log("  PUT  /api/auth/profile");
   console.log("  PUT  /api/auth/change-password");
   console.log("  GET  /api/customer/dashboard");
-  console.log("  GET  /api/health");
 });
 
-// Error handling
+// Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {
   console.error("❌ Unhandled Promise Rejection:", err.message);
+  console.error("💡 Server will continue running...");
 });
 
+// Handle uncaught exceptions
 process.on("uncaughtException", (err) => {
   console.error("❌ Uncaught Exception:", err.message);
-  httpServer.close(() => process.exit(1));
+  console.error("💡 Attempting graceful shutdown...");
+  httpServer.close(() => {
+    process.exit(1);
+  });
 });
 
 // Graceful shutdown
 process.on("SIGTERM", () => {
-  console.log("👋 SIGTERM received, shutting down...");
+  console.log("👋 SIGTERM received: closing HTTP server");
   httpServer.close(() => {
     console.log("✅ HTTP server closed");
     process.exit(0);

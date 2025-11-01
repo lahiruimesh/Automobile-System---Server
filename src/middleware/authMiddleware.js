@@ -1,10 +1,11 @@
 import jwt from "jsonwebtoken";
 
-export const protect = (req, res, next) => {
-  let token = req.headers["authorization"];
+export const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers["authorization"];
+  const token = authHeader && authHeader.split(" ")[1]; // Bearer TOKEN
 
-  if (!token || !token.startsWith("Bearer ")) {
-    return res.status(401).json({ message: "No token provided" });
+  if (!token) {
+    return res.status(401).json({ message: "Access token required" });
   }
 
   token = token.split(" ")[1];
@@ -31,13 +32,7 @@ export const roleCheck = (allowedRoles) => {
     if (!req.user || !req.user.role) {
       return res.status(401).json({ message: "User not authenticated" });
     }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: `Access denied. Required roles: ${allowedRoles.join(", ")}` 
-      });
-    }
-
+    req.user = user;
     next();
-  };
+  });
 };
