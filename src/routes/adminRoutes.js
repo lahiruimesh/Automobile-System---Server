@@ -12,14 +12,20 @@ import {
     deleteEmployee,
     getAllCustomers,
     getCustomerVehicles,
-    getCustomerServiceHistory
+    getCustomerServiceHistory,
+    getWeeklyAppointments,
+    getMonthlyAppointments,
+    getServiceStatusSummary,
+    getEmployeeReport,
+    getCustomerReport,
+    getAppointmentReport
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
 // only admin can access (we'll check role on frontend for now)
-router.get("/employees", protect, getPendingEmployees);
+router.get("/employees/pending", protect, getPendingEmployees);
 router.put("/employees/:id/approve", protect, approveEmployee);
 router.get("/employees/all", protect, getAllEmployees);
 router.get("/employees/total", protect, getTotalEmployeesCount);
@@ -32,5 +38,11 @@ router.delete("/employees/:id", protect, deleteEmployee);
 router.get("/customers/all", protect, getAllCustomers);
 router.get("/customers/:customerId/vehicles", protect, getCustomerVehicles);
 router.get("/customers/:customerId/services", protect, getCustomerServiceHistory);
+router.get("/appointments/weekly", protect, getWeeklyAppointments);
+router.get("/appointments/monthly", protect, getMonthlyAppointments);
+router.get("/services/status-summary", protect, getServiceStatusSummary);
+router.get("/reports/employee", protect, getEmployeeReport);
+router.get("/reports/customer", protect, getCustomerReport);
+router.get("/reports/appointment", protect, getAppointmentReport);
 
 export default router;
