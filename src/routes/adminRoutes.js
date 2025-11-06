@@ -28,7 +28,6 @@ import {
     assignEmployeeToService
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
-
 const router = express.Router();
 
 // only admin can access (we'll check role on frontend for now)
@@ -64,4 +63,3 @@ router.put("/modifications/:modificationId/approve", protect, approveModificatio
 router.put("/modifications/:modificationId/reject", protect, rejectModificationRequest);
 
 export default router;
-
