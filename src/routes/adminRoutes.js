@@ -18,7 +18,12 @@ import {
     getServiceStatusSummary,
     getEmployeeReport,
     getCustomerReport,
-    getAppointmentReport
+    getAppointmentReport,
+    requestAppointmentModification,
+    getModificationRequests,
+    getMyModificationRequests,
+    approveModificationRequest,
+    rejectModificationRequest
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -44,6 +49,13 @@ router.get("/services/status-summary", protect, getServiceStatusSummary);
 router.get("/reports/employee", protect, getEmployeeReport);
 router.get("/reports/customer", protect, getCustomerReport);
 router.get("/reports/appointment", protect, getAppointmentReport);
+
+// Appointment modification routes
+router.post("/appointments/:appointmentId/request-modification", protect, requestAppointmentModification);
+router.get("/modifications", protect, getModificationRequests);
+router.get("/modifications/my-requests", protect, getMyModificationRequests);
+router.put("/modifications/:modificationId/approve", protect, approveModificationRequest);
+router.put("/modifications/:modificationId/reject", protect, rejectModificationRequest);
 
 export default router;
 
