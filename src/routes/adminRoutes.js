@@ -9,7 +9,6 @@ import {
   getMyModificationRequests
 } from "../controllers/adminController.js";
 import { protect, roleCheck } from "../middleware/authMiddleware.js";
-
 const router = express.Router();
 
 // Admin routes
@@ -24,4 +23,3 @@ router.put("/modifications/:modificationId/approve", protect, roleCheck(["employ
 router.put("/modifications/:modificationId/reject", protect, roleCheck(["employee", "admin"]), rejectModificationRequest);
 
 export default router;
-
