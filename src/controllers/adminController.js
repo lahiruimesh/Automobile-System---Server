@@ -4,7 +4,7 @@ import pool from "../config/db.js";
 export const getPendingEmployees = async (req, res) => {
   try {
     const result = await pool.query(
-      "SELECT id, full_name, email, role, is_active FROM users WHERE role = 'employee' AND is_active = 'FALSE'"
+      "SELECT id, full_name, email, role, is_active FROM users WHERE role = 'employee' AND is_active = false"
     );
     res.json(result.rows);
   } catch (err) {
@@ -241,11 +241,17 @@ export const getMyModificationRequests = async (req, res) => {
 // Get all employees
 export const getAllEmployees = async (req, res) => {
   try {
-    const result = await pool.query("SELECT id, full_name, email, role,phone, address, date_of_birth, emergency_contact,emergency_name, is_active FROM users WHERE role = 'employee'");
-    res.json(result.rows);
+    const result = await pool.query("SELECT id, full_name, email, role, phone, address, date_of_birth, emergency_contact, emergency_name, is_active FROM users WHERE role = 'employee'");
+    res.json({
+      success: true,
+      data: result.rows
+    });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: "Error fetching employees" });
+    res.status(500).json({ 
+      success: false,
+      message: "Error fetching employees" 
+    });
   }
 };
 
@@ -584,5 +590,86 @@ export const getAppointmentReport = async (req, res) => {
   } catch (error) {
     console.error("Error fetching appointment report:", error);
     res.status(500).json({ message: "Error fetching appointment report" });
+  }
+};
+
+// Assign employee to service
+export const assignEmployeeToService = async (req, res) => {
+  const { serviceId } = req.params;
+  const { employeeId } = req.body;
+
+  try {
+    console.log("🔧 Assigning employee:", { serviceId, employeeId });
+
+    // Check if service request exists
+    const serviceCheck = await pool.query(
+      "SELECT * FROM service_requests WHERE id = $1",
+      [serviceId]
+    );
+
+    if (serviceCheck.rows.length === 0) {
+      console.log("❌ Service request not found:", serviceId);
+      return res.status(404).json({ 
+        success: false,
+        message: "Service request not found" 
+      });
+    }
+
+    console.log("✅ Service request found:", serviceCheck.rows[0]);
+
+    // Check if employee exists and is active
+    const employeeCheck = await pool.query(
+      "SELECT * FROM users WHERE id = $1 AND role = 'employee' AND is_active = true",
+      [employeeId]
+    );
+
+    if (employeeCheck.rows.length === 0) {
+      console.log("❌ Employee not found or inactive:", employeeId);
+      return res.status(404).json({ 
+        success: false,
+        message: "Employee not found or inactive" 
+      });
+    }
+
+    console.log("✅ Employee found:", employeeCheck.rows[0].full_name);
+
+    // Check if assignment already exists
+    const existingAssignment = await pool.query(
+      "SELECT * FROM employee_assignments WHERE service_id = $1",
+      [serviceId]
+    );
+
+    if (existingAssignment.rows.length > 0) {
+      // Update existing assignment
+      await pool.query(
+        "UPDATE employee_assignments SET employee_id = $1, assigned_date = NOW() WHERE service_id = $2",
+        [employeeId, serviceId]
+      );
+      console.log("✅ Updated existing assignment");
+    } else {
+      // Create new assignment
+      await pool.query(
+        "INSERT INTO employee_assignments (service_id, employee_id, assigned_date) VALUES ($1, $2, NOW())",
+        [serviceId, employeeId]
+      );
+      console.log("✅ Created new assignment");
+    }
+
+    // Update service request status to 'in-progress' if it's 'pending'
+    await pool.query(
+      "UPDATE service_requests SET status = CASE WHEN status = 'pending' THEN 'in-progress' ELSE status END WHERE id = $1",
+      [serviceId]
+    );
+    console.log("✅ Updated service request status");
+
+    res.json({ 
+      success: true,
+      message: "Employee assigned successfully",
+      serviceId,
+      employeeId
+    });
+  } catch (err) {
+    console.error("Error assigning employee:", err);
+    res.status(500).json({ message: "Error assigning employee" });
   }
 };

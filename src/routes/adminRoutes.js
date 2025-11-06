@@ -23,7 +23,9 @@ import {
     getModificationRequests,
     getMyModificationRequests,
     approveModificationRequest,
-    rejectModificationRequest
+    rejectModificationRequest,
+    getAllAppointments,
+    assignEmployeeToService
 } from "../controllers/adminController.js";
 import { protect } from "../middleware/authMiddleware.js";
 
@@ -45,10 +47,14 @@ router.get("/customers/:customerId/vehicles", protect, getCustomerVehicles);
 router.get("/customers/:customerId/services", protect, getCustomerServiceHistory);
 router.get("/appointments/weekly", protect, getWeeklyAppointments);
 router.get("/appointments/monthly", protect, getMonthlyAppointments);
+router.get("/appointments/all", protect, getAllAppointments);
 router.get("/services/status-summary", protect, getServiceStatusSummary);
 router.get("/reports/employee", protect, getEmployeeReport);
 router.get("/reports/customer", protect, getCustomerReport);
 router.get("/reports/appointment", protect, getAppointmentReport);
+
+// Employee assignment routes
+router.post("/services/:serviceId/assign-employee", protect, assignEmployeeToService);
 
 // Appointment modification routes
 router.post("/appointments/:appointmentId/request-modification", protect, requestAppointmentModification);
