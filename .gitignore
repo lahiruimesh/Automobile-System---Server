@@ -37,3 +37,4 @@ coverage/
 *.tmp
 tmp/
 temp/
+config.bat
