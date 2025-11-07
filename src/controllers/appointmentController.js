@@ -228,9 +228,9 @@ export const updateStatus = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, completionNotes } = req.body;
 
-    const appointment = await updateAppointmentStatus(id, status);
+    const appointment = await updateAppointmentStatus(id, status, completionNotes);
 
     // Emit socket event for real-time update
     if (req.io) {

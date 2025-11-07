@@ -328,7 +328,7 @@ export const getUpcomingAppointments = async () => {
       JOIN users u ON a.customer_id = u.id
       JOIN vehicles v ON a.vehicle_id = v.id
       JOIN time_slots ts ON a.slot_id = ts.id
-      WHERE a.status IN ('pending', 'confirmed')
+      WHERE a.status IN ('pending', 'confirmed', 'in_progress')
         AND ts.date >= CURRENT_DATE
       ORDER BY ts.date ASC, ts.start_time ASC
       LIMIT 50
@@ -345,23 +345,40 @@ export const getUpcomingAppointments = async () => {
 /**
  * Update appointment status (for employees/admins)
  */
-export const updateAppointmentStatus = async (appointmentId, status) => {
+export const updateAppointmentStatus = async (appointmentId, status, completionNotes = null) => {
   try {
     const validStatuses = ["pending", "confirmed", "in_progress", "completed", "cancelled"];
     if (!validStatuses.includes(status)) {
       throw new Error("Invalid status");
     }
 
+    // Build the update query dynamically
+    let updateFields = ["status = $1", "updated_at = CURRENT_TIMESTAMP"];
+    let params = [status];
+    let paramIndex = 2;
+
+    if (status === "completed") {
+      updateFields.push("completed_at = CURRENT_TIMESTAMP");
+      
+      // Add completion notes if provided
+      if (completionNotes) {
+        updateFields.push(`completion_notes = $${paramIndex}`);
+        params.push(completionNotes);
+        paramIndex++;
+      }
+    }
+
+    // Add appointmentId as last parameter
+    params.push(appointmentId);
+
     const query = `
       UPDATE appointments 
-      SET status = $1,
-          ${status === "completed" ? "completed_at = CURRENT_TIMESTAMP," : ""}
-          updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
+      SET ${updateFields.join(", ")}
+      WHERE id = $${paramIndex}
       RETURNING *
     `;
 
-    const result = await pool.query(query, [status, appointmentId]);
+    const result = await pool.query(query, params);
 
     if (result.rows.length === 0) {
       throw new Error("Appointment not found");

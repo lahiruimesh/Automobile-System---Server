@@ -43,7 +43,11 @@ export const getMyAssignments = async (req, res) => {
     });
   } catch (err) {
     console.error("Get assignments error:", err);
-    res.status(500).json({ message: "Failed to fetch assignments" });
+    console.error("Error details:", err.message);
+    res.status(500).json({ 
+      message: "Failed to fetch assignments",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -166,8 +170,8 @@ export const getMyTimeLogs = async (req, res) => {
         s.service_type,
         ea.role as assignment_role
       FROM time_logs tl
-      JOIN services s ON tl.service_id = s.id
-      JOIN employee_assignments ea ON tl.assignment_id = ea.id
+      LEFT JOIN services s ON tl.service_id = s.id
+      LEFT JOIN employee_assignments ea ON tl.assignment_id = ea.id
       WHERE tl.employee_id = $1
     `;
 
@@ -204,7 +208,7 @@ export const getMyTimeLogs = async (req, res) => {
 
     // Calculate total hours
     const totalHours = result.rows.reduce(
-      (sum, log) => sum + parseFloat(log.hours_worked),
+      (sum, log) => sum + parseFloat(log.hours_worked || 0),
       0
     );
 
@@ -216,7 +220,12 @@ export const getMyTimeLogs = async (req, res) => {
     });
   } catch (err) {
     console.error("Get time logs error:", err);
-    res.status(500).json({ message: "Failed to fetch time logs" });
+    console.error("Error details:", err.message);
+    console.error("Error stack:", err.stack);
+    res.status(500).json({ 
+      message: "Failed to fetch time logs",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
