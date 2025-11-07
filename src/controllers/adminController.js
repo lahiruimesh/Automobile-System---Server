@@ -396,40 +396,55 @@ export const getAllAppointments = async (req, res) => {
   try {
     const query = `
       SELECT 
-        s.id AS service_id,
-        s.title,
-        s.service_type,
-        s.description,
-        s.status,
-        s.estimated_hours,
-        s.total_hours_logged,
-        s.scheduled_date,
-        s.completion_date,
-        s.vehicle_number,
-        s.vehicle_model,
-
+        a.id,
+        a.status,
+        a.service_type,
+        a.notes,
+        a.booked_at,
+        a.confirmed_at,
+        a.completed_at,
+        
         -- Customer details
         u.id AS customer_id,
         u.full_name AS customer_name,
         u.phone AS customer_phone,
         u.email AS customer_email,
-
+        
+        -- Vehicle details
+        v.make AS vehicle_make,
+        v.model AS vehicle_model,
+        v.year AS vehicle_year,
+        v.license_plate,
+        
+        -- Time slot details
+        ts.date AS appointment_date,
+        ts.start_time,
+        ts.end_time,
+        
         -- Assigned employee details
-        e.id AS employee_id,
-        e.full_name AS employee_name
-
-      FROM services s
-      JOIN users u ON s.customer_id = u.id
-      LEFT JOIN employee_assignments ea ON ea.service_id = s.id
-      LEFT JOIN users e ON ea.employee_id = e.id
-      ORDER BY s.scheduled_date DESC;
+        emp.id AS assigned_employee_id,
+        emp.full_name AS assigned_employee_name
+        
+      FROM appointments a
+      JOIN users u ON a.customer_id = u.id
+      JOIN vehicles v ON a.vehicle_id = v.id
+      JOIN time_slots ts ON a.slot_id = ts.id
+      LEFT JOIN users emp ON a.assigned_employee_id = emp.id
+      ORDER BY ts.date DESC, ts.start_time DESC;
     `;
 
     const result = await pool.query(query);
-    res.json(result.rows);
+    res.json({
+      success: true,
+      appointments: result.rows,
+      count: result.rows.length
+    });
   } catch (err) {
     console.error("Error fetching appointments:", err);
-    res.status(500).json({ message: "Error fetching appointments" });
+    res.status(500).json({ 
+      success: false,
+      message: "Error fetching appointments" 
+    });
   }
 };
 

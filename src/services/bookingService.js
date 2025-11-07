@@ -308,10 +308,11 @@ export const getUserAppointments = async (userId, status = null) => {
 
 /**
  * Get upcoming appointments (for employees)
+ * If employeeId is provided, only returns appointments assigned to that employee
  */
-export const getUpcomingAppointments = async () => {
+export const getUpcomingAppointments = async (employeeId = null) => {
   try {
-    const query = `
+    let query = `
       SELECT 
         a.*,
         u.full_name as customer_name,
@@ -323,18 +324,28 @@ export const getUpcomingAppointments = async () => {
         v.license_plate,
         ts.date,
         ts.start_time,
-        ts.end_time
+        ts.end_time,
+        emp.full_name as assigned_employee_name
       FROM appointments a
       JOIN users u ON a.customer_id = u.id
       JOIN vehicles v ON a.vehicle_id = v.id
       JOIN time_slots ts ON a.slot_id = ts.id
+      LEFT JOIN users emp ON a.assigned_employee_id = emp.id
       WHERE a.status IN ('pending', 'confirmed', 'in_progress')
         AND ts.date >= CURRENT_DATE
-      ORDER BY ts.date ASC, ts.start_time ASC
-      LIMIT 50
     `;
 
-    const result = await pool.query(query);
+    const params = [];
+    
+    // If employeeId is provided, filter for that employee's assignments
+    if (employeeId) {
+      query += ` AND a.assigned_employee_id = $1`;
+      params.push(employeeId);
+    }
+
+    query += ` ORDER BY ts.date ASC, ts.start_time ASC LIMIT 50`;
+
+    const result = await pool.query(query, params);
     return result.rows;
   } catch (error) {
     console.error("Error fetching upcoming appointments:", error);
