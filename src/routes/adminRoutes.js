@@ -1,27 +1,67 @@
 import express from "express";
-import { 
-  getPendingEmployees, 
-  approveEmployee,
-  requestAppointmentModification,
-  getModificationRequests,
-  approveModificationRequest,
-  rejectModificationRequest,
-  getMyModificationRequests
+import {
+    getPendingEmployees,
+    approveEmployee,
+    getAllEmployees,
+    getTotalEmployeesCount,
+    getTotalCustomersCount,
+    getTotalAppointmentsCount,
+    getTotalCompletedServicesCount,
+    addNewEmployee,
+    updateEmployee,
+    deleteEmployee,
+    getAllCustomers,
+    getCustomerVehicles,
+    getCustomerServiceHistory,
+    getWeeklyAppointments,
+    getMonthlyAppointments,
+    getServiceStatusSummary,
+    getEmployeeReport,
+    getCustomerReport,
+    getAppointmentReport,
+    requestAppointmentModification,
+    getModificationRequests,
+    getMyModificationRequests,
+    approveModificationRequest,
+    rejectModificationRequest,
+    getAllAppointments,
+    assignEmployeeToService
 } from "../controllers/adminController.js";
-import { protect, roleCheck } from "../middleware/authMiddleware.js";
+import { protect } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-// Admin routes
-router.get("/employees", protect, roleCheck(["admin"]), getPendingEmployees);
-router.put("/employees/:id/approve", protect, roleCheck(["admin"]), approveEmployee);
+// only admin can access (we'll check role on frontend for now)
+router.get("/employees/pending", protect, getPendingEmployees);
+router.put("/employees/:id/approve", protect, approveEmployee);
+router.get("/employees/all", protect, getAllEmployees);
+router.get("/employees/total", protect, getTotalEmployeesCount);
+router.get("/customers/total", protect, getTotalCustomersCount);
+router.get("/appointments/total", protect, getTotalAppointmentsCount);
+router.get("/services/total", protect, getTotalCompletedServicesCount);
+router.post("/employees", protect, addNewEmployee);
+router.put("/employees/:id", protect, updateEmployee);
+router.delete("/employees/:id", protect, deleteEmployee);
+router.get("/customers/all", protect, getAllCustomers);
+router.get("/customers/:customerId/vehicles", protect, getCustomerVehicles);
+router.get("/customers/:customerId/services", protect, getCustomerServiceHistory);
+router.get("/appointments/weekly", protect, getWeeklyAppointments);
+router.get("/appointments/monthly", protect, getMonthlyAppointments);
+router.get("/appointments/all", protect, getAllAppointments);
+router.get("/services/status-summary", protect, getServiceStatusSummary);
+router.get("/reports/employee", protect, getEmployeeReport);
+router.get("/reports/customer", protect, getCustomerReport);
+router.get("/reports/appointment", protect, getAppointmentReport);
 
-// Modification request routes
-router.post("/appointments/:appointmentId/request-modification", protect, roleCheck(["customer"]), requestAppointmentModification);
-router.get("/modifications/my-requests", protect, roleCheck(["customer"]), getMyModificationRequests);
-router.get("/modifications", protect, roleCheck(["employee", "admin"]), getModificationRequests);
-router.put("/modifications/:modificationId/approve", protect, roleCheck(["employee", "admin"]), approveModificationRequest);
-router.put("/modifications/:modificationId/reject", protect, roleCheck(["employee", "admin"]), rejectModificationRequest);
+// Employee assignment routes
+router.post("/services/:serviceId/assign-employee", protect, assignEmployeeToService);
+
+// Appointment modification routes
+router.post("/appointments/:appointmentId/request-modification", protect, requestAppointmentModification);
+router.get("/modifications", protect, getModificationRequests);
+router.get("/modifications/my-requests", protect, getMyModificationRequests);
+router.put("/modifications/:modificationId/approve", protect, approveModificationRequest);
+router.put("/modifications/:modificationId/reject", protect, rejectModificationRequest);
 
 export default router;
 

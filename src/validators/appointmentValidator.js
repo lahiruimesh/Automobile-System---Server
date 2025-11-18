@@ -81,6 +81,13 @@ export const updateStatusSchema = Joi.object({
       "any.only": "Invalid status",
       "any.required": "Status is required",
     }),
+  completionNotes: Joi.string()
+    .max(1000)
+    .optional()
+    .allow("", null)
+    .messages({
+      "string.max": "Completion notes cannot exceed 1000 characters",
+    }),
 });
 
 export const createVehicleSchema = Joi.object({

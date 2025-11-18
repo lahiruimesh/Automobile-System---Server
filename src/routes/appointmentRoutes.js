@@ -10,6 +10,7 @@ import {
   getMyVehicles,
   addVehicle,
   deleteVehicle,
+  assignEmployee,
 } from "../controllers/appointmentController.js";
 
 const router = express.Router();
@@ -30,6 +31,9 @@ router.patch("/:id/cancel", protect, roleCheck(["customer"]), cancelUserAppointm
 // Employee/Admin routes
 router.get("/upcoming", protect, roleCheck(["employee", "admin"]), getUpcoming);
 router.patch("/:id/status", protect, roleCheck(["employee", "admin"]), updateStatus);
+
+// Admin only routes
+router.patch("/:id/assign-employee", protect, roleCheck(["admin"]), assignEmployee);
 
 // Vehicle routes
 router.get("/vehicles", protect, roleCheck(["customer"]), getMyVehicles);
