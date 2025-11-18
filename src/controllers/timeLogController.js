@@ -43,7 +43,11 @@ export const getMyAssignments = async (req, res) => {
     });
   } catch (err) {
     console.error("Get assignments error:", err);
-    res.status(500).json({ message: "Failed to fetch assignments" });
+    console.error("Error details:", err.message);
+    res.status(500).json({ 
+      message: "Failed to fetch assignments",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -101,7 +105,63 @@ export const createTimeLog = async (req, res) => {
       notes,
     } = req.body;
 
-    // Validate employee has this assignment
+    // Check if this is an appointment-based assignment (starts with "apt-")
+    const isAppointmentBased = typeof assignment_id === 'string' && assignment_id.startsWith('apt-');
+    
+    if (isAppointmentBased) {
+      // For appointment-based assignments, extract the appointment ID
+      const appointmentId = parseInt(assignment_id.replace('apt-', ''));
+      
+      // Verify the appointment exists and belongs to this employee (is in_progress)
+      const appointmentCheck = await pool.query(
+        `SELECT a.id 
+         FROM appointments a
+         JOIN time_slots ts ON a.slot_id = ts.id
+         WHERE a.id = $1 AND a.status = 'in_progress'`,
+        [appointmentId]
+      );
+
+      if (appointmentCheck.rows.length === 0) {
+        return res.status(403).json({ message: "Invalid appointment or not in progress" });
+      }
+      
+      // Calculate hours worked
+      const startDateTime = new Date(`${log_date}T${start_time}`);
+      const endDateTime = new Date(`${log_date}T${end_time}`);
+      const hoursWorked = (endDateTime - startDateTime) / (1000 * 60 * 60);
+
+      if (hoursWorked <= 0) {
+        return res
+          .status(400)
+          .json({ message: "End time must be after start time" });
+      }
+
+      // For appointment-based logs, we store NULL for assignment_id since it doesn't exist in employee_assignments
+      const result = await pool.query(
+        `INSERT INTO time_logs 
+         (employee_id, service_id, assignment_id, log_date, start_time, end_time, hours_worked, work_description, notes)
+         VALUES ($1, $2, NULL, $3, $4, $5, $6, $7, $8)
+         RETURNING *`,
+        [
+          employeeId,
+          appointmentId, // Use the appointment ID as service_id for tracking
+          log_date,
+          start_time,
+          end_time,
+          hoursWorked.toFixed(2),
+          work_description,
+          notes,
+        ]
+      );
+
+      return res.status(201).json({
+        success: true,
+        message: "Time log created successfully",
+        timeLog: result.rows[0],
+      });
+    }
+
+    // Regular assignment validation
     const assignmentCheck = await pool.query(
       `SELECT id FROM employee_assignments 
        WHERE id = $1 AND employee_id = $2 AND is_active = true`,
@@ -161,13 +221,24 @@ export const getMyTimeLogs = async (req, res) => {
     let query = `
       SELECT 
         tl.*,
-        s.title as service_title,
-        s.vehicle_number,
-        s.service_type,
-        ea.role as assignment_role
+        COALESCE(s.title, 
+          CASE 
+            WHEN a.id IS NOT NULL THEN UPPER(REPLACE(a.service_type, '_', ' '))
+            ELSE 'Unknown Service'
+          END
+        ) as service_title,
+        COALESCE(s.vehicle_number, v.license_plate) as vehicle_number,
+        COALESCE(s.service_type, a.service_type) as service_type,
+        ea.role as assignment_role,
+        CASE 
+          WHEN a.id IS NOT NULL THEN true
+          ELSE false
+        END as is_appointment_based
       FROM time_logs tl
-      JOIN services s ON tl.service_id = s.id
-      JOIN employee_assignments ea ON tl.assignment_id = ea.id
+      LEFT JOIN services s ON tl.service_id = s.id AND tl.assignment_id IS NOT NULL
+      LEFT JOIN appointments a ON tl.service_id = a.id AND tl.assignment_id IS NULL
+      LEFT JOIN vehicles v ON a.vehicle_id = v.id
+      LEFT JOIN employee_assignments ea ON tl.assignment_id = ea.id
       WHERE tl.employee_id = $1
     `;
 
@@ -204,7 +275,7 @@ export const getMyTimeLogs = async (req, res) => {
 
     // Calculate total hours
     const totalHours = result.rows.reduce(
-      (sum, log) => sum + parseFloat(log.hours_worked),
+      (sum, log) => sum + parseFloat(log.hours_worked || 0),
       0
     );
 
@@ -216,7 +287,12 @@ export const getMyTimeLogs = async (req, res) => {
     });
   } catch (err) {
     console.error("Get time logs error:", err);
-    res.status(500).json({ message: "Failed to fetch time logs" });
+    console.error("Error details:", err.message);
+    console.error("Error stack:", err.stack);
+    res.status(500).json({ 
+      message: "Failed to fetch time logs",
+      error: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
   }
 };
 
@@ -380,19 +456,30 @@ export const getMonthlyReport = async (req, res) => {
 
     const result = await pool.query(
       `SELECT 
-        s.title as service_title,
-        s.vehicle_number,
-        s.service_type,
+        COALESCE(s.title, 
+          CASE 
+            WHEN a.id IS NOT NULL THEN UPPER(REPLACE(a.service_type, '_', ' '))
+            ELSE 'Unknown Service'
+          END
+        ) as service_title,
+        COALESCE(s.vehicle_number, v.license_plate) as vehicle_number,
+        COALESCE(s.service_type, a.service_type) as service_type,
         SUM(tl.hours_worked) as total_hours,
         COUNT(tl.id) as entry_count,
         MIN(tl.log_date) as first_entry,
-        MAX(tl.log_date) as last_entry
+        MAX(tl.log_date) as last_entry,
+        CASE 
+          WHEN a.id IS NOT NULL THEN true
+          ELSE false
+        END as is_appointment_based
        FROM time_logs tl
-       JOIN services s ON tl.service_id = s.id
+       LEFT JOIN services s ON tl.service_id = s.id AND tl.assignment_id IS NOT NULL
+       LEFT JOIN appointments a ON tl.service_id = a.id AND tl.assignment_id IS NULL
+       LEFT JOIN vehicles v ON a.vehicle_id = v.id
        WHERE tl.employee_id = $1 
          AND EXTRACT(YEAR FROM tl.log_date) = $2
          AND EXTRACT(MONTH FROM tl.log_date) = $3
-       GROUP BY s.id, s.title, s.vehicle_number, s.service_type
+       GROUP BY s.id, s.title, s.vehicle_number, s.service_type, a.id, a.service_type, v.license_plate
        ORDER BY total_hours DESC`,
       [employeeId, reportYear, reportMonth]
     );
@@ -478,14 +565,22 @@ export const updateServiceStatus = async (req, res) => {
     const { status } = req.body; // pending, in_progress, completed
     const employeeId = req.user.id;
 
-    // Verify employee is assigned
+    // Check if this is a regular service assignment
     const assignmentCheck = await pool.query(
       `SELECT * FROM employee_assignments 
        WHERE service_id = $1 AND employee_id = $2 AND is_active = true`,
       [service_id, employeeId]
     );
 
-    if (assignmentCheck.rows.length === 0) {
+    // Check if this is an appointment-based assignment
+    const appointmentCheck = await pool.query(
+      `SELECT * FROM appointments 
+       WHERE id = $1 AND assigned_employee_id = $2`,
+      [service_id, employeeId]
+    );
+
+    // Employee must be assigned either via employee_assignments or appointments
+    if (assignmentCheck.rows.length === 0 && appointmentCheck.rows.length === 0) {
       return res.status(403).json({ message: "Not assigned to this service" });
     }
 
@@ -494,15 +589,31 @@ export const updateServiceStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const result = await pool.query(
-      `UPDATE services 
-       SET status = $1::text, 
-           completion_date = CASE WHEN $1::text = 'completed' THEN CURRENT_TIMESTAMP ELSE completion_date END,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE id = $2
-       RETURNING *`,
-      [status, service_id]
-    );
+    let result;
+    
+    // Update status based on whether it's a regular service or appointment
+    if (assignmentCheck.rows.length > 0) {
+      // Regular service - update services table
+      result = await pool.query(
+        `UPDATE services 
+         SET status = $1::text, 
+             completion_date = CASE WHEN $1::text = 'completed' THEN CURRENT_TIMESTAMP ELSE completion_date END,
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING *`,
+        [status, service_id]
+      );
+    } else {
+      // Appointment - update appointments table
+      result = await pool.query(
+        `UPDATE appointments 
+         SET status = $1::text, 
+             updated_at = CURRENT_TIMESTAMP
+         WHERE id = $2
+         RETURNING *`,
+        [status, service_id]
+      );
+    }
 
     res.json({
       success: true,

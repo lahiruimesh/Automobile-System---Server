@@ -193,10 +193,16 @@ export const cancelUserAppointment = async (req, res) => {
 /**
  * Get upcoming appointments (for employees)
  * GET /api/appointments/upcoming
+ * If user is employee, returns only their assigned appointments
+ * If user is admin, returns all appointments
  */
 export const getUpcoming = async (req, res) => {
   try {
-    const appointments = await getUpcomingAppointments();
+    // Check if user is employee or admin by role
+    const isEmployee = req.user.role === 'employee';
+    const employeeId = isEmployee ? req.user.id : null;
+    
+    const appointments = await getUpcomingAppointments(employeeId);
 
     res.json({
       success: true,
@@ -228,9 +234,9 @@ export const updateStatus = async (req, res) => {
     }
 
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, completionNotes } = req.body;
 
-    const appointment = await updateAppointmentStatus(id, status);
+    const appointment = await updateAppointmentStatus(id, status, completionNotes);
 
     // Emit socket event for real-time update
     if (req.io) {
@@ -382,6 +388,65 @@ export const deleteVehicle = async (req, res) => {
     console.error("Error in deleteVehicle:", error);
     res.status(500).json({
       message: "Error deleting vehicle",
+      error: error.message,
+    });
+  }
+};
+
+/**
+ * Assign employee to appointment (Admin only)
+ * PATCH /api/appointments/:id/assign-employee
+ */
+export const assignEmployee = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { employee_id } = req.body;
+
+    // Validate employee exists and has employee role
+    const employeeCheck = await pool.query(
+      `SELECT id, full_name FROM users WHERE id = $1 AND role = 'employee'`,
+      [employee_id]
+    );
+
+    if (employeeCheck.rows.length === 0) {
+      return res.status(404).json({
+        message: "Employee not found or invalid role",
+      });
+    }
+
+    // Update appointment
+    const result = await pool.query(
+      `UPDATE appointments 
+       SET assigned_employee_id = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE id = $2
+       RETURNING *`,
+      [employee_id, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        message: "Appointment not found",
+      });
+    }
+
+    // Emit socket event for real-time update
+    if (req.io) {
+      req.io.emit("appointmentUpdate", {
+        action: "employeeAssigned",
+        appointmentId: id,
+        employeeId: employee_id,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: `Appointment assigned to ${employeeCheck.rows[0].full_name}`,
+      appointment: result.rows[0],
+    });
+  } catch (error) {
+    console.error("Error in assignEmployee:", error);
+    res.status(500).json({
+      message: "Error assigning employee",
       error: error.message,
     });
   }
